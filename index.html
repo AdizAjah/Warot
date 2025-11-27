@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>POLARITY SLASHER (Fixed Controls)</title>
+    <title>WAROT</title>
     <style>
         body {
             margin: 0;
@@ -29,6 +29,34 @@
             font-size: 20px;
             text-shadow: 1px 1px 0 #000;
         }
+
+        /* ULTIMATE BAR */
+        #ulti-container {
+            margin-top: 15px;
+            width: 200px;
+            height: 10px;
+            background: #333;
+            border: 2px solid #555;
+            position: relative;
+        }
+        #ulti-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #ff0, #f0f);
+            transition: width 0.1s;
+        }
+        #ulti-text {
+            position: absolute;
+            top: -20px;
+            left: 0;
+            font-size: 14px;
+            color: #ff0;
+            font-weight: bold;
+            display: none; /* Muncul saat penuh */
+            animation: blink 0.2s infinite;
+        }
+
+        @keyframes blink { 50% { opacity: 0; } }
 
         /* UI Tengah Bawah (Indikator Warna) */
         #polarity-hud {
@@ -77,8 +105,14 @@
 <div id="ui-layer">
     <div class="stat-box" style="border-color: lime;">HP: <span id="hp-display">100</span>%</div>
     <div class="stat-box" style="border-color: cyan;">SCORE: <span id="score-display">0</span></div>
+    
+    <div id="ulti-container">
+        <div id="ulti-text">PRESS [E] TO OMNI-BURST</div>
+        <div id="ulti-fill"></div>
+    </div>
+
     <div style="margin-top:10px; opacity:0.7; font-size:14px;">
-        [WASD] Gerak &nbsp; [SPACE] Serang &nbsp; [SHIFT] Ganti Warna
+        [WASD] Move &nbsp; [SPACE] Attack &nbsp; [SHIFT] Color Swap
     </div>
 </div>
 
@@ -89,7 +123,7 @@
 
 <div id="message">
     YOU DIED
-    <div class="sub-msg">Press F5 to Restart</div>
+    <div class="sub-msg">Reload to Restart</div>
 </div>
 
 <canvas id="gameCanvas"></canvas>
@@ -106,10 +140,16 @@
     let score = 0;
     let frameCount = 0;
 
-    // Input Handler (Standard WASD)
+    // ULTIMATE SYSTEM
+    let ultiCharge = 0;
+    const maxUlti = 20; // Butuh 20 kill untuk penuh
+    let ultiActive = false; // Efek visual saat ulti
+    let ultiRadius = 0; // Untuk animasi lingkaran
+
+    // Input Handler
     const keys = {
         w: false, a: false, s: false, d: false,
-        space: false, shift: false
+        space: false, shift: false, e: false
     };
 
     window.addEventListener('keydown', (e) => {
@@ -135,23 +175,21 @@
         x: canvas.width / 2,
         y: canvas.height / 2,
         size: 20,
-        speed: 7, // Kecepatan normal
-        color: 'red', // 'red' atau 'blue'
+        speed: 7, 
+        color: 'red', 
         hp: 100,
         attacking: false,
         attackDuration: 0,
         switchCooldown: false
     };
 
-    const enemies = [];
+    let enemies = [];
     const particles = [];
-    const texts = []; // Untuk damage text
+    const texts = []; 
 
     // --- LOGIC ---
 
     function spawnEnemy() {
-        // Spawn rate makin cepat seiring score
-        // Cap di 15 frame (sangat cepat)
         const spawnRate = Math.max(15, 60 - (score * 0.5)); 
         
         if (frameCount % Math.floor(spawnRate) === 0) {
@@ -163,10 +201,8 @@
                 x: player.x + Math.cos(angle) * dist,
                 y: player.y + Math.sin(angle) * dist,
                 size: 15 + Math.random() * 10,
-                speed: 3 + (score * 0.02), // Makin lama makin cepat
-                color: type,
-                maxHp: 1,
-                hp: 1
+                speed: 3 + (score * 0.02), 
+                color: type
             });
         }
     }
@@ -175,78 +211,134 @@
         texts.push({x, y, text, color, life: 30, dy: -2});
     }
 
+    function addUltiCharge(amount) {
+        ultiCharge = Math.min(maxUlti, ultiCharge + amount);
+        updateUltiUI();
+    }
+
+    function updateUltiUI() {
+        const pct = (ultiCharge / maxUlti) * 100;
+        document.getElementById('ulti-fill').style.width = pct + '%';
+        
+        if(ultiCharge >= maxUlti) {
+            document.getElementById('ulti-text').style.display = 'block';
+            document.getElementById('ulti-fill').style.boxShadow = '0 0 10px #fff';
+        } else {
+            document.getElementById('ulti-text').style.display = 'none';
+            document.getElementById('ulti-fill').style.boxShadow = 'none';
+        }
+    }
+
+    function triggerUltimate() {
+        if(ultiCharge < maxUlti) return;
+
+        // Reset Charge
+        ultiCharge = 0;
+        updateUltiUI();
+
+        // Visual Effects
+        ultiActive = true;
+        ultiRadius = 0;
+
+        // Screen Shake Effect (Manual)
+        canvas.style.transform = `translate(${Math.random()*10}px, ${Math.random()*10}px)`;
+        setTimeout(() => canvas.style.transform = 'none', 100);
+
+        // KILL ALL ENEMIES
+        enemies.forEach(e => {
+            createParticles(e.x, e.y, 'purple', 15); // Partikel ungu spesial
+            spawnText(e.x, e.y, "OBLITERATED!", "#f0f");
+            score++;
+        });
+        enemies = []; // Kosongkan array musuh
+    }
+
     function update() {
         if (gameOver) return;
         frameCount++;
         spawnEnemy();
 
-        // 1. MOVEMENT (Standard WASD)
+        // 0. ULTIMATE LOGIC
+        if (keys.e) {
+            triggerUltimate();
+        }
+
+        if (ultiActive) {
+            ultiRadius += 50; // Kecepatan ledakan
+            if (ultiRadius > Math.max(canvas.width, canvas.height)) {
+                ultiActive = false;
+            }
+        }
+
+        // 1. MOVEMENT
         if (keys.w) player.y -= player.speed;
         if (keys.s) player.y += player.speed;
         if (keys.a) player.x -= player.speed;
         if (keys.d) player.x += player.speed;
 
-        // Clamp Screen
         player.x = Math.max(20, Math.min(canvas.width-20, player.x));
         player.y = Math.max(20, Math.min(canvas.height-20, player.y));
 
-        // 2. ACTION: SWITCH COLOR
+        // 2. SWITCH COLOR
         if (keys.shift && !player.switchCooldown) {
             player.color = player.color === 'red' ? 'blue' : 'red';
             player.switchCooldown = true;
-            setTimeout(() => player.switchCooldown = false, 150); // Cooldown cepat
+            setTimeout(() => player.switchCooldown = false, 150); 
         }
         
-        // Update UI Indikator Warna
         document.getElementById('ind-red').className = `color-indicator ${player.color === 'red' ? 'active' : ''}`;
         document.getElementById('ind-blue').className = `color-indicator ${player.color === 'blue' ? 'active' : ''}`;
 
-        // 3. ACTION: ATTACK
+        // 3. ATTACK
         if (keys.space && !player.attacking) {
             player.attacking = true;
-            player.attackDuration = 5; // Sangat cepat (snappy)
+            player.attackDuration = 5; 
         }
         if (player.attacking) player.attackDuration--;
         if (player.attackDuration <= 0) player.attacking = false;
 
         // 4. ENTITY LOOP
-        enemies.forEach((enemy, index) => {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            let enemy = enemies[i];
             const dx = player.x - enemy.x;
             const dy = player.y - enemy.y;
             const dist = Math.sqrt(dx*dx + dy*dy);
             
-            // Chase logic
+            // Chase
             enemy.x += (dx / dist) * enemy.speed;
             enemy.y += (dy / dist) * enemy.speed;
 
-            // Collision: Musuh nabrak badan
+            // Collision Player
             if (dist < player.size + enemy.size) {
-                player.hp -= 10; // Sakit!
-                spawnText(player.x, player.y, "-10 HP", "white");
-                createParticles(player.x, player.y, 'white', 5);
-                enemies.splice(index, 1);
+                // Jika sedang Ulti, player kebal
+                if(!ultiActive) {
+                    player.hp -= 10;
+                    spawnText(player.x, player.y, "-10 HP", "white");
+                    createParticles(player.x, player.y, 'white', 5);
+                    enemies.splice(i, 1);
+                    continue; 
+                }
             }
 
-            // Collision: Kena Pedang
-            // Range serangan = size + 60
+            // Collision Sword
             if (player.attacking && dist < player.size + enemy.size + 60) {
                 if (player.color === enemy.color) {
                     // KILL
                     createParticles(enemy.x, enemy.y, enemy.color, 8);
-                    enemies.splice(index, 1);
+                    enemies.splice(i, 1);
                     score++;
+                    addUltiCharge(1); // Tambah charge ulti
                 } else {
-                    // FAIL (WRONG COLOR)
-                    if (frameCount % 5 === 0) { // Throttle biar gak instan mati
+                    // FAIL
+                    if (frameCount % 5 === 0) { 
                         player.hp -= 2; 
                         spawnText(enemy.x, enemy.y - 20, "WRONG!", "yellow");
-                        // Knockback enemy
                         enemy.x -= (dx/dist) * 20;
                         enemy.y -= (dy/dist) * 20;
                     }
                 }
             }
-        });
+        }
 
         // Update Particles
         for (let i = particles.length - 1; i >= 0; i--) {
@@ -256,14 +348,13 @@
             if (particles[i].life <= 0) particles.splice(i, 1);
         }
 
-        // Update Floating Text
+        // Update Text
         for (let i = texts.length - 1; i >= 0; i--) {
             texts[i].life--;
             texts[i].y += texts[i].dy;
             if (texts[i].life <= 0) texts.splice(i, 1);
         }
 
-        // UI HTML Update
         document.getElementById('hp-display').innerText = Math.max(0, Math.floor(player.hp));
         document.getElementById('score-display').innerText = score;
 
@@ -275,32 +366,45 @@
 
     function createParticles(x, y, color, count) {
         for(let i=0; i<count; i++) {
+            let pColor = color;
+            if(color === 'red') pColor = '#f00';
+            else if(color === 'blue') pColor = '#00f';
+            else if(color === 'purple') pColor = '#f0f';
+            else pColor = '#fff';
+
             particles.push({
                 x: x, y: y,
-                vx: (Math.random() - 0.5) * 12,
-                vy: (Math.random() - 0.5) * 12,
-                life: 15 + Math.random() * 10,
-                color: color === 'red' ? '#f00' : (color === 'blue' ? '#00f' : '#fff')
+                vx: (Math.random() - 0.5) * 15,
+                vy: (Math.random() - 0.5) * 15,
+                life: 20 + Math.random() * 10,
+                color: pColor
             });
         }
     }
 
     // --- RENDER ---
     function draw() {
-        // Clear background with trail
         ctx.fillStyle = 'rgba(5, 5, 5, 0.4)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Grid background (aesthetic)
-        ctx.strokeStyle = '#111';
-        ctx.lineWidth = 1;
-        // ... (opsional)
+        // --- DRAW ULTIMATE SHOCKWAVE ---
+        if (ultiActive) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, ultiRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(255, 0, 255, ${1 - (ultiRadius / Math.max(canvas.width, canvas.height))})`;
+            ctx.lineWidth = 50;
+            ctx.stroke();
+            // Flash screen
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.5 - (ultiRadius / 1000)})`;
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+            ctx.restore();
+        }
 
-        // --- PLAYER RENDER ---
+        // --- PLAYER ---
         ctx.save();
         ctx.translate(player.x, player.y);
 
-        // Sword Slash Visual
         if (player.attacking) {
             ctx.beginPath();
             ctx.arc(0, 0, player.size + 60, 0, Math.PI * 2);
@@ -308,22 +412,18 @@
             ctx.fill();
         }
 
-        // Aura
         ctx.beginPath();
         ctx.arc(0, 0, player.size + 8, 0, Math.PI * 2);
         ctx.strokeStyle = player.color === 'red' ? '#ff0000' : '#00aaff';
         ctx.lineWidth = 3;
         ctx.stroke();
 
-        // Main Body
         ctx.fillStyle = '#eee';
         ctx.fillRect(-player.size/2, -player.size/2, player.size, player.size);
-        
         ctx.restore();
 
-        // --- ENEMY RENDER ---
+        // --- ENEMIES ---
         enemies.forEach(enemy => {
-            // Glow effect
             ctx.shadowBlur = 10;
             ctx.shadowColor = enemy.color === 'red' ? 'red' : 'blue';
             
@@ -335,17 +435,16 @@
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 1;
             ctx.stroke();
-            
-            ctx.shadowBlur = 0; // Reset
+            ctx.shadowBlur = 0; 
         });
 
-        // --- PARTICLES RENDER ---
+        // --- PARTICLES ---
         particles.forEach(p => {
             ctx.fillStyle = p.color;
             ctx.fillRect(p.x, p.y, 4, 4);
         });
 
-        // --- TEXT RENDER ---
+        // --- TEXT ---
         texts.forEach(t => {
             ctx.fillStyle = t.color;
             ctx.font = "bold 16px Courier New";
