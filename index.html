@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <link rel="icon" href="WAROT LOGO.png">
+    
     <title>WAROT</title>
     <style>
         body {
@@ -191,6 +194,18 @@
     <div id="ulti-overlay"></div> <!-- Layer Ungu Baru -->
     
     <div id="ui-layer">
+        <!-- 2. LOGO SVG DI UI (Visual Game) -->
+        <div class="logo-container">
+            <svg width="120" height="40" viewBox="0 0 120 40">
+                <!-- Glitch Effect Shadows -->
+                <text x="5" y="30" font-family="Arial Black" font-size="30" fill="red" opacity="0.7">WAROT</text>
+                <text x="-2" y="30" font-family="Arial Black" font-size="30" fill="blue" opacity="0.7">WAROT</text>
+                <!-- Main Text -->
+                <text x="0" y="30" font-family="Arial Black" font-size="30" fill="white">WAROT</text>
+                <!-- Sword Decoration -->
+                <path d="M5 35 L115 35" stroke="white" stroke-width="2" />
+            </svg>
+        </div>
         <div class="stat-box" style="border-color: lime;">HP: <span id="hp-display">100</span>%</div>
         <div class="stat-box" style="border-color: cyan;">SCORE: <span id="score-display">0</span></div>
         
@@ -201,7 +216,7 @@
     </div>
 
     <div id="polarity-hud">
-        <div id="ind-red" class="color-indicator" style="background:red; color:red;"></div>
+        <div id="ind-red" class="color-indicator" style="background:rgb(255, 0, 0); color:red;"></div>
         <div id="ind-blue" class="color-indicator" style="background:blue; color:blue;"></div>
     </div>
 
